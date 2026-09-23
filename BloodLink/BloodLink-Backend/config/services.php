@@ -34,5 +34,10 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'mailtrap' => [
+        'api_key' => env('MAILTRAP_API_KEY'),
+        'sender_email' => env('MAILTRAP_SENDER_EMAIL', 'hello@demomailtrap.com'),
+        'sender_name' => env('MAILTRAP_SENDER_NAME', 'BloodLink Emergency Network'),
+    ],
 
 ];
