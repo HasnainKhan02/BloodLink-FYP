@@ -46,7 +46,7 @@ export default function FileDropzone({ file, onFileSelect }) {
             type="file"
             accept="image/*,application/pdf"
             className="hidden"
-            onChange={(e) => handleFiles(e.target.files)}
+            onChange={(e) => handleFiles(e.target.files)} required
           />
         </div>
       ) : (

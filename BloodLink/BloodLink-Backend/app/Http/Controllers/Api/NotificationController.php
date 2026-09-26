@@ -3,40 +3,58 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 
 class NotificationController extends Controller
 {
-    /**
-     * Get all notifications for the authenticated user.
-     */
+    // 1. Fetch User Notifications
     public function index(Request $request)
     {
-        $user = $request->user();
-
-        // Fetches notifications if using Laravel's built-in Notification system,
-        // or customize to fetch from a dedicated Notifications table.
-        $notifications = $user->notifications()
-            ->orderBy('created_at', 'desc')
+        $notifications = Notification::where('user_id', $request->user()->id)
+            ->latest()
+            ->take(30)
             ->get();
 
-        return response()->json($notifications);
+        return response()->json([
+            'status' => 'success',
+            'data'   => $notifications
+        ], 200);
     }
 
-    /**
-     * Mark a specific notification as read.
-     */
-    public function markRead(Request $request, $id)
+    // 2. Fetch Unread Count (Navbar Badge)
+    public function unreadCount(Request $request)
     {
-        $user = $request->user();
+        try {
+            $count = Notification::where('user_id', $request->user()->id)
+                ->where('is_read', false)
+                ->count();
 
-        $notification = $user->notifications()->where('id', $id)->first();
+            return response()->json(['unread_count' => $count], 200);
+        } catch (\Exception $e) {
+            return response()->json(['unread_count' => 0], 200);
+        }
+    }
+
+    // 3. Mark Single Notification as Read
+    public function markAsRead(Request $request, $id)
+    {
+        $notification = Notification::where('user_id', $request->user()->id)->find($id);
 
         if ($notification) {
-            $notification->markAsRead();
-            return response()->json(['message' => 'Notification marked as read.']);
+            $notification->update(['is_read' => true]);
         }
 
-        return response()->json(['message' => 'Notification not found.'], 404);
+        return response()->json(['message' => 'Notification marked as read'], 200);
+    }
+
+    // 4. Mark All as Read
+    public function markAllAsRead(Request $request)
+    {
+        Notification::where('user_id', $request->user()->id)
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+
+        return response()->json(['message' => 'All notifications marked as read'], 200);
     }
 }

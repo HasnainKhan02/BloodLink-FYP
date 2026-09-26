@@ -1,23 +1,36 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import Navbar from "../components/layout/Navbar";
 import StepIndicator from "../components/requests/StepIndicator";
 import PatientDetailsStep from "../components/requests/PatientDetailsStep";
 import UrgencyVerificationStep from "../components/requests/UrgencyVerificationStep";
 
-// Leaflet Styles
-const LeafletMapStyles = () => (
-  <style>{`
-    .leaflet-container {
-      width: 100%;
-      height: 100%;
-      border-radius: 1rem;
-      z-index: 0;
+// Dynamically Inject Leaflet CSS & Container Styles
+const LeafletMapStyles = () => {
+  useEffect(() => {
+    const linkId = "leaflet-css-cdn";
+    if (!document.getElementById(linkId)) {
+      const link = document.createElement("link");
+      link.id = linkId;
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(link);
     }
-  `}</style>
-);
+  }, []);
+
+  return (
+    <style>{`
+      .leaflet-container {
+        width: 100%;
+        height: 100%;
+        border-radius: 1rem;
+        z-index: 10;
+      }
+    `}</style>
+  );
+};
 
 const markerIcon = new L.Icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -30,6 +43,7 @@ const markerIcon = new L.Icon({
 function MapController({ center, zoom }) {
   const map = useMap();
   useEffect(() => {
+    map.invalidateSize();
     if (center) map.flyTo(center, zoom, { duration: 1.5 });
   }, [center, zoom, map]);
   return null;
@@ -39,8 +53,11 @@ function LocationStepComponent({ data, onChange }) {
   const [locating, setLocating] = useState(false);
   const [geoError, setGeoError] = useState("");
 
-  const defaultCenter = [34.1202, 72.4700];
-  const position = data.latitude && data.longitude ? [data.latitude, data.longitude] : defaultCenter;
+  const defaultCenter = [34.1202, 72.47];
+  const position =
+    data.latitude && data.longitude
+      ? [data.latitude, data.longitude]
+      : defaultCenter;
   const zoomLevel = data.latitude && data.longitude ? 16 : 12;
 
   const reverseGeocode = async (lat, lng) => {
@@ -54,7 +71,12 @@ function LocationStepComponent({ data, onChange }) {
       const addr = result.address || {};
 
       const detectedCity =
-        addr.city || addr.town || addr.village || addr.county || addr.state_district || "";
+        addr.city ||
+        addr.town ||
+        addr.village ||
+        addr.county ||
+        addr.state_district ||
+        "";
 
       const streetParts = [
         addr.road || addr.pedestrian || addr.suburb,
@@ -62,7 +84,10 @@ function LocationStepComponent({ data, onChange }) {
         addr.city_district,
       ].filter(Boolean);
 
-      const detectedAddress = streetParts.length > 0 ? streetParts.join(", ") : result.display_name || "";
+      const detectedAddress =
+        streetParts.length > 0
+          ? streetParts.join(", ")
+          : result.display_name || "";
 
       onChange((prev) => ({
         ...prev,
@@ -128,16 +153,29 @@ function LocationStepComponent({ data, onChange }) {
         disabled={locating}
         className="w-full py-3 px-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 text-sm font-bold hover:bg-rose-100 disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
       >
-        {locating ? "📍 Acquiring High-Accuracy GPS Fix..." : "🎯 Use My Current Location"}
+        {locating
+          ? "📍 Acquiring High-Accuracy GPS Fix..."
+          : "🎯 Use My Current Location"}
       </button>
 
+      {/* Map Container */}
       <div className="h-64 w-full rounded-2xl overflow-hidden border border-slate-200 shadow-inner relative z-0">
-        <MapContainer center={position} zoom={zoomLevel} scrollWheelZoom={false} className="h-full w-full">
+        <MapContainer
+          center={position}
+          zoom={zoomLevel}
+          scrollWheelZoom={false}
+          className="h-full w-full"
+        >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://www.openstreetmap.org/tile/{z}/{x}/{y}.png"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <Marker position={position} icon={markerIcon} draggable={true} eventHandlers={eventHandlers} />
+          <Marker
+            position={position}
+            icon={markerIcon}
+            draggable={true}
+            eventHandlers={eventHandlers}
+          />
           <MapController center={position} zoom={zoomLevel} />
         </MapContainer>
       </div>
@@ -151,7 +189,9 @@ function LocationStepComponent({ data, onChange }) {
             type="text"
             required
             value={data.hospitalName}
-            onChange={(e) => onChange({ ...data, hospitalName: e.target.value })}
+            onChange={(e) =>
+              onChange({ ...data, hospitalName: e.target.value })
+            }
             placeholder="e.g. Swabi Medical Complex"
             className="w-full rounded-xl border border-slate-200 p-3 text-sm focus:outline-none focus:border-rose-500"
           />
@@ -181,7 +221,7 @@ function LocationStepComponent({ data, onChange }) {
               readOnly
               value={
                 data.latitude && data.longitude
-                  ? `${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}`
+                  ? `${Number(data.latitude).toFixed(4)}, ${Number(data.longitude).toFixed(4)}`
                   : "Not set (click locate button)"
               }
               className="w-full rounded-xl border border-slate-200 p-3 text-sm bg-slate-50 text-slate-500 font-mono text-xs"
@@ -228,6 +268,9 @@ export default function CreateRequestPage() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
+  // Load User Data for Navbar
+  const currentUser = JSON.parse(localStorage.getItem("bloodlink_user") || "{}");
+
   const validateStep = (currentStep) => {
     setError("");
 
@@ -251,6 +294,10 @@ export default function CreateRequestPage() {
         setError("Please select an Urgency Level.");
         return false;
       }
+      if (!data.proofFile) {
+        setError("Please upload a medical proof or hospital requisition document.");
+        return false;
+      }
     }
 
     if (currentStep === 3) {
@@ -267,7 +314,7 @@ export default function CreateRequestPage() {
         return false;
       }
       if (!data.latitude || !data.longitude) {
-        setError("Please click 'Use My Current Location' or drag the map marker pin.");
+        setError("Please click 'Use My Current Location' or set position on map.");
         return false;
       }
     }
@@ -286,9 +333,17 @@ export default function CreateRequestPage() {
     setStep((s) => Math.max(s - 1, 1));
   };
 
+  // Prevent early form submit on pressing Enter key in inputs
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && step < 3) {
+      e.preventDefault();
+      next();
+    }
+  };
+
   const handleSubmit = async (e) => {
     if (e) e.preventDefault();
-    if (!validateStep(3)) return;
+    if (!validateStep(1) || !validateStep(2) || !validateStep(3)) return;
 
     setLoading(true);
     setError("");
@@ -319,7 +374,6 @@ export default function CreateRequestPage() {
     }
 
     try {
-      console.log("Broadcasting request data to Laravel API...");
       const response = await fetch("http://127.0.0.1:8000/api/requests", {
         method: "POST",
         headers: {
@@ -332,7 +386,6 @@ export default function CreateRequestPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        console.error("API Error Response:", result);
         if (result.errors) {
           const firstKey = Object.keys(result.errors)[0];
           throw new Error(`${firstKey}: ${result.errors[firstKey][0]}`);
@@ -343,7 +396,6 @@ export default function CreateRequestPage() {
       alert("Emergency blood request broadcasted successfully!");
       navigate("/dashboard");
     } catch (err) {
-      console.error("Broadcast Exception:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -351,11 +403,13 @@ export default function CreateRequestPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans antialiased">
-      <Navbar role="Requester" unreadCount={0} userName="Hasnain" />
+    <div className="min-h-screen bg-slate-50 font-sans antialiased">
+      <Navbar userName={currentUser.name || "Requester"} />
 
       <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
-        <h1 className="text-2xl font-extrabold text-[#0F172A]">Create a blood request</h1>
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+          Create a blood request
+        </h1>
         <p className="mt-1.5 text-sm text-slate-500">
           Every field helps donors respond faster.
         </p>
@@ -366,13 +420,23 @@ export default function CreateRequestPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <form
+          onSubmit={handleSubmit}
+          onKeyDown={handleKeyDown}
+          className="mt-8 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm sm:p-8"
+        >
           <StepIndicator currentStep={step} />
 
           <div className="mt-8">
-            {step === 1 && <PatientDetailsStep data={data} onChange={setData} />}
-            {step === 2 && <UrgencyVerificationStep data={data} onChange={setData} />}
-            {step === 3 && <LocationStepComponent data={data} onChange={setData} />}
+            {step === 1 && (
+              <PatientDetailsStep data={data} onChange={setData} />
+            )}
+            {step === 2 && (
+              <UrgencyVerificationStep data={data} onChange={setData} />
+            )}
+            {step === 3 && (
+              <LocationStepComponent data={data} onChange={setData} />
+            )}
           </div>
 
           <div className="mt-8 flex items-center justify-between">
@@ -381,7 +445,7 @@ export default function CreateRequestPage() {
                 type="button"
                 onClick={back}
                 disabled={loading}
-                className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-[#0F172A] hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
               >
                 Back
               </button>
@@ -393,7 +457,7 @@ export default function CreateRequestPage() {
               <button
                 type="button"
                 onClick={next}
-                className="rounded-xl bg-[#0F172A] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#1E293B] cursor-pointer"
+                className="rounded-xl bg-slate-900 px-6 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 cursor-pointer"
               >
                 Continue
               </button>
@@ -401,9 +465,11 @@ export default function CreateRequestPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="rounded-xl bg-[#DC2626] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#c11f1f] disabled:bg-rose-300 cursor-pointer"
+                className="rounded-xl bg-rose-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-rose-700 disabled:bg-rose-300 cursor-pointer shadow-md shadow-rose-600/20"
               >
-                {loading ? "Broadcasting..." : "Broadcast Request to Nearby Donors"}
+                {loading
+                  ? "Broadcasting..."
+                  : "Broadcast Request to Nearby Donors"}
               </button>
             )}
           </div>
