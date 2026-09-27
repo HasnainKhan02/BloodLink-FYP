@@ -16,12 +16,16 @@ import CreateRequest from "./pages/CreateRequestPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import Profile from "./pages/ProfilePage";
 import Notifications from "./pages/NotificationsPage";
+import GlobalNotificationListener from "./components/GlobalNotificationListener"; // Import Listener
+import DonorVerificationPublic from "./Pages/DonorVerificationPublic";
 
 export default function App() {
   return (
     <AuthProvider>
+      <GlobalNotificationListener />
       <Router>
         <Routes>
+
           {/* Default Entry Point: Always loads Landing Page */}
           <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<Auth />} />
@@ -43,6 +47,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/verify-donor/:hash" element={<DonorVerificationPublic />} />
           <Route
             path="/profile"
             element={

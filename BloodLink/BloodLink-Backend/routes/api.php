@@ -7,7 +7,9 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\DonationController;
-
+use App\Http\Controllers\Api\ChatController;
+use App\Http\Controllers\Api\PublicVerificationController;
+use Illuminate\Support\Facades\Broadcast;
 /*
 |--------------------------------------------------------------------------
 | Public Routes
@@ -31,7 +33,15 @@ Route::post('/register-verified', [AuthController::class, 'verifyOtpAndRegister'
 Route::post('/forgot-password', [AuthController::class, 'sendResetOtp']);
 Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 
+// Public Route for QR Verification (No Auth Needed)
+Route::get('/verify-donor/{hash}', [PublicVerificationController::class, 'verifyDonor']);
 
+// Protected Chat Routes
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/chat/start', [ChatController::class, 'startConversation']);
+    Route::get('/chat/{conversationId}', [ChatController::class, 'getMessages']);
+    Route::post('/chat/{conversationId}/send', [ChatController::class, 'sendMessage']);
+});
 /*
 |--------------------------------------------------------------------------
 | Protected User Routes (Requires Sanctum Token)
@@ -41,8 +51,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Auth Session
     Route::post('/logout', [AuthController::class, 'logout']);
-
-    // Profile Management
+    Broadcast::routes(['middleware' => ['auth:sanctum']]);
+    // Profile Management 
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::post('/profile/upload-doc', [ProfileController::class, 'uploadDocument']);
